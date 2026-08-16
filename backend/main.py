@@ -19,6 +19,7 @@ RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
 RUNPOD_IMAGE_ENDPOINT_ID = os.getenv("RUNPOD_IMAGE_ENDPOINT_ID")
 WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL")  # e.g., https://your-ngrok-url.ngrok.io
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8080/v1")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -215,4 +216,68 @@ async def analyze_image(req: AnalyzeImageRequest):
     except Exception as e:
         print(f"Error analyzing image: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class LocalGenerateRequest(BaseModel):
+    prompt: str
+    model: Optional[str] = "Qwen2.5-72B-Instruct-8bit"
+    system_prompt: Optional[str] = "You are an imaginative storyteller and creative assistant for KinTales."
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = 2048
+
+
+@app.get("/api/local/models")
+async def get_local_models():
+    """Retrieve available local MLX models served via oMLX."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"{LOCAL_LLM_URL}/models")
+            if res.status_code == 200:
+                data = res.json()
+                return {"status": "ok", "models": [m.get("id") for m in data.get("data", [])]}
+            return {"status": "error", "message": f"oMLX responded with {res.status_code}"}
+    except httpx.ConnectError:
+        return {"status": "offline", "message": "oMLX local server not running on port 8080"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/local/generate")
+async def local_generate(req: LocalGenerateRequest):
+    """Generate text/stories using a local MLX model (Qwen 2.5 72B / Llama 3.3 70B)."""
+    target_model = req.model.replace("mlx-community/", "") if req.model else "Qwen2.5-72B-Instruct-8bit"
+
+    messages = []
+    if req.system_prompt:
+        messages.append({"role": "system", "content": req.system_prompt})
+    messages.append({"role": "user", "content": req.prompt})
+
+    payload = {
+        "model": target_model,
+        "messages": messages,
+        "temperature": req.temperature,
+        "max_tokens": req.max_tokens,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            res = await client.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload)
+            if res.status_code == 200:
+                data = res.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return {
+                    "status": "ok",
+                    "model": target_model,
+                    "response": content,
+                    "usage": data.get("usage", {})
+                }
+            raise HTTPException(status_code=res.status_code, detail=res.text)
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="Local model server (oMLX) is offline. Start it with: /Users/prismforge/.omlx/bin/omlx serve --port 8080"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
