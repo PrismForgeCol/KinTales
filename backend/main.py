@@ -50,6 +50,10 @@ class GenerateResponse(BaseModel):
 def read_root():
     return {"message": "KinTales API is running"}
 
+@app.get("/api/status")
+def get_status():
+    return {"status": "online", "message": "KinTales API is running"}
+
 @app.post("/api/generate", response_model=GenerateResponse)
 async def generate_image(req: GenerateRequest):
     if not supabase:

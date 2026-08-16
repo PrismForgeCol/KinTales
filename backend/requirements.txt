@@ -6,3 +6,4 @@ python-dotenv
 httpx
 runpod
 google-generativeai
+mcp>=1.0.0
