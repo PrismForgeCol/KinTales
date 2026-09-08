@@ -137,8 +137,8 @@
                                 <div className="flex-grow border-t border-slate-300 dark:border-slate-600"></div>
                             </div>
 
-                            <button onClick={startGuestSession} type="button" className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold border-2 transition-all ${isNightMode ? 'border-amber-500/50 text-amber-300 hover:bg-amber-500/10' : 'border-amber-400 text-amber-800 bg-amber-50/70 hover:bg-amber-100/80'}`}>
-                                <Sparkles className="w-5 h-5 text-amber-500" />
+                            <button onClick={startGuestSession} type="button" className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold border-2 transition-all ${isNightMode ? 'border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/10' : 'border-emerald-500 text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80'}`}>
+                                <Sparkles className="w-5 h-5 text-emerald-500" />
                                 Try KinTales with Guest Access
                             </button>
 
@@ -1255,10 +1255,10 @@
                             <div className="flex items-center gap-2">
                                 <button onClick={startGuestSession}
                                     id="guestAccessButton"
-                                    className="px-4 py-2 rounded-full font-semibold transition-all border-2 border-amber-500/80 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 flex items-center gap-1.5 shadow-sm"
+                                    className="px-4 py-2 rounded-full font-semibold transition-all bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/25 hover:scale-105 active:scale-95"
                                     title="Try KinTales with in-memory Guest Access (no login required)"
                                 >
-                                    <Sparkles className="w-4 h-4 text-amber-500" />
+                                    <Sparkles className="w-4 h-4 text-emerald-200" />
                                     Guest Access
                                 </button>
                                 <button onClick={() => setCurrentView('auth')}
@@ -1270,8 +1270,8 @@
                             </div>
                         ) : isGuest ? (
                             <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
-                                <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border flex items-center gap-2 ${isNightMode ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
-                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                                <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border flex items-center gap-2 ${isNightMode ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-emerald-50 border-emerald-300 text-emerald-800'}`}>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                                     <span>Guest ({characters.length}/3 Heroes • {guestAvatarCount}/3 Avatars)</span>
                                 </div>
                                 <button onClick={() => setCurrentView('hub')}
@@ -1391,7 +1391,7 @@
                     </div>
 
                     {isGuest && (
-                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
+                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' : 'bg-emerald-50 border-emerald-300 text-emerald-900'}`}>
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">✨</span>
                                 <div>
@@ -1597,7 +1597,7 @@
                     </div>
 
                     {isGuest && (
-                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
+                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' : 'bg-emerald-50 border-emerald-300 text-emerald-900'}`}>
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">🛡️</span>
                                 <div>
