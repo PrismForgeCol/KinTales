@@ -43,7 +43,7 @@
         const supabaseKey = 'sb_publishable_wJkAdB8VD5Tfxjxce6QbhQ_G7c_7_ak';
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        const AuthView = ({ theme, isNightMode, setCurrentView }) => {
+        const AuthView = ({ theme, isNightMode, setCurrentView, startGuestSession }) => {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [loading, setLoading] = useState(false);
@@ -130,6 +130,21 @@
                                 </svg>
                                 Continue with Google
                             </button>
+
+                            <div className="relative flex items-center py-2">
+                                <div className="flex-grow border-t border-slate-300 dark:border-slate-600"></div>
+                                <span className={`flex-shrink-0 mx-4 text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>Or Instant Guest</span>
+                                <div className="flex-grow border-t border-slate-300 dark:border-slate-600"></div>
+                            </div>
+
+                            <button onClick={startGuestSession} type="button" className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold border-2 transition-all ${isNightMode ? 'border-amber-500/50 text-amber-300 hover:bg-amber-500/10' : 'border-amber-400 text-amber-800 bg-amber-50/70 hover:bg-amber-100/80'}`}>
+                                <Sparkles className="w-5 h-5 text-amber-500" />
+                                Try KinTales with Guest Access
+                            </button>
+
+                            <button onClick={() => setCurrentView('landing')} type="button" className="w-full text-center text-xs text-slate-400 hover:underline pt-2">
+                                &larr; Back to Home
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -145,25 +160,62 @@
             const [session, setSession] = useState(null);
             const [user, setUser] = useState(null);
             const [isAdmin, setIsAdmin] = useState(false);
+            const [isGuest, setIsGuest] = useState(false);
+            const [guestAvatarCount, setGuestAvatarCount] = useState(0);
+
+            const startGuestSession = () => {
+                const guestUser = {
+                    id: 'guest-' + Math.random().toString(36).substring(2, 9),
+                    email: 'guest@kintales.local',
+                    isGuest: true
+                };
+                setIsGuest(true);
+                setGuestAvatarCount(0);
+                setCharacters([]);
+                setStories([]);
+                setTracks([
+                    { id: 'default-track-1', name: "The Lost Amulet", character_id: '', theme_id: 'treasure' },
+                    { id: 'default-track-2', name: "Flight of the Comet", character_id: '', theme_id: 'space' }
+                ]);
+                setSession({ user: guestUser, isGuest: true });
+                setUser(guestUser);
+                setIsAdmin(false);
+                setCurrentView('hub');
+            };
+
+            const exitGuestSession = () => {
+                setIsGuest(false);
+                setGuestAvatarCount(0);
+                setCharacters([]);
+                setStories([]);
+                setTracks([]);
+                setSession(null);
+                setUser(null);
+                setCurrentView('landing');
+            };
 
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
-                    setSession(session);
-                    setUser(session?.user);
-                    setIsAdmin(session?.user?.email === 'admin@kintales.com');
+                    if (!isGuest) {
+                        setSession(session);
+                        setUser(session?.user);
+                        setIsAdmin(session?.user?.email === 'admin@kintales.com');
+                    }
                 });
 
                 const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-                    setSession(session);
-                    setUser(session?.user);
-                    setIsAdmin(session?.user?.email === 'admin@kintales.com');
-                    if (!session && currentView !== 'landing' && currentView !== 'auth') {
-                        setCurrentView('landing');
+                    if (!isGuest) {
+                        setSession(session);
+                        setUser(session?.user);
+                        setIsAdmin(session?.user?.email === 'admin@kintales.com');
+                        if (!session && currentView !== 'landing' && currentView !== 'auth') {
+                            setCurrentView('landing');
+                        }
                     }
                 });
 
                 return () => subscription.unsubscribe();
-            }, [currentView]);
+            }, [currentView, isGuest]);
 
             // Local State for specific views
             const [heroTab, setHeroTab] = useState('gallery'); // gallery, training
@@ -194,7 +246,7 @@
             const [newTrackThemeId, setNewTrackThemeId] = useState('');
 
             useEffect(() => {
-                if (!session?.user) return;
+                if (!session?.user || isGuest) return;
                 const loadData = async () => {
                     setIsLoadingData(true);
                     try {
@@ -317,8 +369,161 @@
                 return <span className={emojiClassName}>{avatarOrEmoji || '✨'}</span>;
             };
 
+            const generateProceduralAvatar = (name, role, referenceImage) => {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 512;
+                    canvas.height = 512;
+                    const ctx = canvas.getContext('2d');
+
+                    let hash = 0;
+                    for (let i = 0; i < (name || 'Hero').length; i++) {
+                        hash = (name || 'Hero').charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const hue1 = Math.abs(hash) % 360;
+                    const hue2 = (hue1 + 50) % 360;
+
+                    const grad = ctx.createLinearGradient(0, 0, 512, 512);
+                    grad.addColorStop(0, `hsl(${hue1}, 85%, 55%)`);
+                    grad.addColorStop(1, `hsl(${hue2}, 90%, 40%)`);
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, 512, 512);
+
+                    const radial = ctx.createRadialGradient(256, 210, 30, 256, 210, 220);
+                    radial.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+                    radial.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = radial;
+                    ctx.fillRect(0, 0, 512, 512);
+
+                    const drawBanner = () => {
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+                        if (ctx.roundRect) {
+                            ctx.beginPath();
+                            ctx.roundRect(48, 380, 416, 96, 20);
+                            ctx.fill();
+                        } else {
+                            ctx.fillRect(48, 380, 416, 96);
+                        }
+
+                        ctx.font = 'bold 26px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText(name || 'Hero', 256, 422);
+
+                        ctx.font = '600 16px sans-serif';
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.fillText(role || 'KinTales Hero', 256, 452);
+                    };
+
+                    const drawDefaultPortrait = () => {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                        ctx.beginPath();
+                        ctx.arc(256, 205, 135, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = `hsl(${hue1}, 75%, 45%)`;
+                        ctx.lineWidth = 6;
+                        ctx.stroke();
+
+                        ctx.font = 'bold 96px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = `hsl(${hue1}, 80%, 45%)`;
+                        const initials = (name || 'Hero').slice(0, 2).toUpperCase();
+                        ctx.fillText(initials, 256, 205);
+
+                        drawBanner();
+                    };
+
+                    if (referenceImage) {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.arc(256, 205, 140, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.clip();
+                            ctx.drawImage(img, 116, 65, 280, 280);
+                            ctx.restore();
+
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 8;
+                            ctx.beginPath();
+                            ctx.arc(256, 205, 140, 0, Math.PI * 2);
+                            ctx.stroke();
+
+                            drawBanner();
+                            resolve(canvas.toDataURL('image/png'));
+                        };
+                        img.onerror = () => {
+                            drawDefaultPortrait();
+                            resolve(canvas.toDataURL('image/png'));
+                        };
+                        img.src = referenceImage;
+                    } else {
+                        drawDefaultPortrait();
+                        resolve(canvas.toDataURL('image/png'));
+                    }
+                });
+            };
+
             const handleGenerateAvatar = async () => {
                 if (!newHeroName) { alert('Please enter a name first.'); return; }
+
+                if (isGuest) {
+                    if (guestAvatarCount >= 3) {
+                        alert("Guest limit reached! Guests can generate up to 3 avatar portraits per session.\n\nPlease Sign In or Sign Up to unlock unlimited avatar creations!");
+                        return;
+                    }
+                    setGuestAvatarCount(prev => prev + 1);
+                    setIsGeneratingAvatar(true);
+                    setAvatarStatusMsg('✨ Crafting magic portrait...');
+
+                    const messages = [
+                        '✨ Whispering incantations...',
+                        '🎨 Splashing watercolors...',
+                        '🖌️ Sketching the portrait...',
+                        '⚡ Adding magic sparkles...',
+                        '🌟 Bringing the hero to life...'
+                    ];
+                    let msgIdx = 0;
+                    const msgInterval = setInterval(() => {
+                        msgIdx = (msgIdx + 1) % messages.length;
+                        setAvatarStatusMsg(messages[msgIdx]);
+                    }, 800);
+
+                    try {
+                        let finalVisualDescription = visualDescription;
+                        if (!finalVisualDescription && uploadedImages && uploadedImages.length > 0) {
+                            try {
+                                setAvatarStatusMsg('🔍 Analyzing reference photos...');
+                                const result = await get_visual_description(uploadedImages);
+                                if (result) {
+                                    finalVisualDescription = result.visual_description || '';
+                                    setVisualDescription(finalVisualDescription);
+                                }
+                            } catch (e) {
+                                console.warn("Guest vision analysis warning:", e);
+                            }
+                        }
+
+                        setAvatarStatusMsg('🎨 Painting cartoon avatar portrait...');
+                        await new Promise(r => setTimeout(r, 1200));
+                        const avatarDataUrl = await generateProceduralAvatar(newHeroName, newHeroRole, uploadedImages[0]);
+                        setNewHeroAvatar(avatarDataUrl);
+                        setAvatarStatusMsg('🎉 Portrait complete!');
+                        setTimeout(() => setAvatarStatusMsg(''), 2000);
+                    } catch (err) {
+                        console.error('Guest avatar generation error:', err);
+                        setAvatarStatusMsg(`❌ ${err.message}`);
+                        setTimeout(() => setAvatarStatusMsg(''), 4000);
+                    } finally {
+                        clearInterval(msgInterval);
+                        setIsGeneratingAvatar(false);
+                    }
+                    return;
+                }
+
                 const geminiKey = (window.KINTALES_CONFIG || {}).GEMINI_API_KEY || '';
                 if (!geminiKey || geminiKey === 'YOUR_GEMINI_API_KEY_HERE') {
                     alert('Please add your Gemini API key to config.js first.\nOpen config.js and replace YOUR_GEMINI_API_KEY_HERE with your key.');
@@ -391,49 +596,52 @@
 
                     // Call our Python Backend to generate image
                     const backendUrl = window.KINTALES_CONFIG?.BACKEND_URL || 'http://localhost:8001';
-                    const response = await fetch(`${backendUrl}/api/generate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            prompt: prompt,
-                            character_id: editingHeroId || null,
-                            user_id: session.user.id
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => ({}));
-                        throw new Error(errData?.detail || `API error ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const generationId = data.id;
-
-                    // Poll Supabase for completion
                     let imageUrl = null;
-                    for (let i = 0; i < 60; i++) { // poll up to 60 times (e.g. 2 seconds * 60 = 120 seconds)
-                        await new Promise(r => setTimeout(r, 2000));
-                        const { data: genData, error: genError } = await supabase
-                            .from('image_generations')
-                            .select('*')
-                            .eq('id', generationId)
-                            .single();
-                            
-                        if (genError) {
-                            console.error("Polling error:", genError);
-                            continue;
+
+                    try {
+                        const response = await fetch(`${backendUrl}/api/generate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                prompt: prompt,
+                                character_id: editingHeroId || null,
+                                user_id: session.user.id
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            const generationId = data.id;
+
+                            // Poll Supabase for completion
+                            for (let i = 0; i < 60; i++) {
+                                await new Promise(r => setTimeout(r, 2000));
+                                const { data: genData, error: genError } = await supabase
+                                    .from('image_generations')
+                                    .select('*')
+                                    .eq('id', generationId)
+                                    .single();
+                                    
+                                if (genError) {
+                                    console.error("Polling error:", genError);
+                                    continue;
+                                }
+                                
+                                if (genData.status === 'completed') {
+                                    imageUrl = genData.image_url;
+                                    break;
+                                } else if (genData.status === 'failed' || genData.status === 'failed_no_image') {
+                                    throw new Error('Image generation failed on the server.');
+                                }
+                            }
                         }
-                        
-                        if (genData.status === 'completed') {
-                            imageUrl = genData.image_url;
-                            break;
-                        } else if (genData.status === 'failed' || genData.status === 'failed_no_image') {
-                            throw new Error('Image generation failed on the server.');
-                        }
+                    } catch (backendErr) {
+                        console.warn("Backend image generation unavailable, falling back to styled procedural portrait:", backendErr);
                     }
 
                     if (!imageUrl) {
-                        throw new Error('Image generation timed out.');
+                        // Graceful fallback: generate procedural portrait
+                        imageUrl = await generateProceduralAvatar(newHeroName, newHeroRole, uploadedImages[0]);
                     }
 
                     setNewHeroAvatar(imageUrl);
@@ -586,6 +794,18 @@
 
                     for (const rawFile of files) {
                         const file = await resizeImage(rawFile, 800, 800);
+
+                        if (isGuest) {
+                            // In guest mode, keep images purely in browser memory as Data URLs.
+                            const dataUrl = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(file);
+                            });
+                            newImageUrls.push(dataUrl);
+                            continue;
+                        }
+
                         const fileExt = file.name.split('.').pop();
                         const fileName = `${Math.random()}.${fileExt}`;
                         const filePath = `${session.user.id}/${fileName}`;
@@ -626,6 +846,55 @@
             const handleSaveHero = async () => {
                 if (!newHeroName || !newHeroAge || !session?.user) return;
                 setIsGenerating(true);
+
+                if (isGuest) {
+                    if (!editingHeroId && characters.length >= 3) {
+                        alert("Guest limit reached! Guests can create up to 3 heroes per session.\n\nPlease Sign In or Sign Up to unlock unlimited characters!");
+                        setIsGenerating(false);
+                        return;
+                    }
+
+                    const heroId = editingHeroId || ('guest-hero-' + Math.random().toString(36).substring(2, 9));
+                    const mappedSavedHero = {
+                        id: heroId,
+                        user_id: session.user.id,
+                        name: newHeroName,
+                        role: newHeroRole || 'The Mysterious Wanderer',
+                        type: 'child',
+                        emoji_icon: uploadedImages.length > 0 ? '✨' : '🌟',
+                        image_paths: uploadedImages,
+                        age: newHeroAge || '',
+                        quirk: newHeroQuirk || '',
+                        visual_description: visualDescription || '',
+                        generated_prompt: generatedPrompt || '',
+                        archetype_list: archetypeList || [],
+                        avatar: newHeroAvatar || '',
+                        image: newHeroAvatar || (uploadedImages.length > 0 ? uploadedImages[0] : '✨'),
+                        images: uploadedImages
+                    };
+
+                    if (editingHeroId) {
+                        setCharacters(characters.map(c => c.id === editingHeroId ? mappedSavedHero : c));
+                    } else {
+                        setCharacters([mappedSavedHero, ...characters]);
+                    }
+
+                    setEditingHeroId(null);
+                    setNewHeroName('');
+                    setNewHeroRole('');
+                    setNewHeroAge('');
+                    setNewHeroQuirk('');
+                    setNewHeroAvatar('');
+                    setUploadedImages([]);
+                    setArchetypeMode('standard');
+                    setVisualDescription('');
+                    setGeneratedPrompt('');
+                    setArchetypeList([]);
+                    setArchetypeIndex(0);
+                    setHeroTab('gallery');
+                    setIsGenerating(false);
+                    return;
+                }
 
                 try {
                     const heroData = {
@@ -752,6 +1021,24 @@
                 if (!newTrackName || !newTrackHeroId || !session?.user) return;
                 setIsGenerating(true);
 
+                if (isGuest) {
+                    const newTrack = {
+                        id: 'guest-track-' + Math.random().toString(36).substring(2, 9),
+                        created_at: new Date().toISOString(),
+                        user_id: session.user.id,
+                        character_id: newTrackHeroId,
+                        name: newTrackName,
+                        theme_id: newTrackThemeId || 'treasure'
+                    };
+                    setTracks(prev => [newTrack, ...prev]);
+                    setIsCreatingTrack(false);
+                    setNewTrackName('');
+                    setNewTrackHeroId('');
+                    setNewTrackThemeId('');
+                    setIsGenerating(false);
+                    return;
+                }
+
                 try {
                     const trackPayload = {
                         user_id: session.user.id,
@@ -828,6 +1115,29 @@
                     const hero = characters.find(c => c.id === selectedHero);
                     const themeObj = themes.find(t => t.id === selectedTheme);
                     const title = `${hero.name}'s ${themeObj.name} Adventure`;
+
+                    if (isGuest) {
+                        const guestStory = {
+                            id: 'guest-story-' + Math.random().toString(36).substring(2, 9),
+                            created_at: new Date().toISOString(),
+                            user_id: session.user.id,
+                            character_id: hero.id,
+                            title: title,
+                            theme_id: themeObj.id,
+                            hero: { ...hero, image: hero.avatar || (hero.images && hero.images[0]) || hero.emoji_icon || '✨' },
+                            theme: themeObj,
+                            date: new Date().toLocaleDateString(),
+                            content: `Once upon a time, ${hero.name}, known throughout the realm as "${hero.role || 'The Brave Explorer'}", stepped through the shimmering portal into the ${themeObj.name} realm!\n\nGuided by their special gift—"${hero.quirk || 'boundless imagination'}"—${hero.name} befriended loyal companions, solved magical riddles, and made the world a brighter, happier place.\n\nEvery family legend has a beginning, and this is only the first chapter of ${hero.name}'s endless adventures!`
+                        };
+
+                        setStories(prev => [guestStory, ...prev]);
+                        setCurrentView('archive');
+                        setSelectedHero(null);
+                        setSelectedTheme(null);
+                        setSelectedTrackId('');
+                        setIsGenerating(false);
+                        return;
+                    }
 
                     // Attempt to insert with track_id
                     let storyResult;
@@ -923,7 +1233,7 @@
 
             const Navbar = () => (
                 <nav className={`w-full p-4 flex justify-between items-center border-b ${isNightMode ? 'border-slate-800' : 'border-amber-200'}`}>
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('landing')}>
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView(session ? 'hub' : 'landing')}>
                         <div className={`p-2 rounded-full bg-gradient-to-tr ${theme.portal}`}>
                             <Sparkles className="text-white w-5 h-5" />
                         </div>
@@ -942,11 +1252,47 @@
                         </button>
 
                         {currentView === 'landing' && !session ? (
-                            <button onClick={() => setCurrentView('auth')}
-                                className={`px-4 py-2 rounded-full font-semibold transition-all ${theme.accent}`}
-                            >
-                                Sign In / Sign Up
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={startGuestSession}
+                                    id="guestAccessButton"
+                                    className="px-4 py-2 rounded-full font-semibold transition-all border-2 border-amber-500/80 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 flex items-center gap-1.5 shadow-sm"
+                                    title="Try KinTales with in-memory Guest Access (no login required)"
+                                >
+                                    <Sparkles className="w-4 h-4 text-amber-500" />
+                                    Guest Access
+                                </button>
+                                <button onClick={() => setCurrentView('auth')}
+                                    id="signInButton"
+                                    className={`px-4 py-2 rounded-full font-semibold transition-all ${theme.accent}`}
+                                >
+                                    Sign In / Sign Up
+                                </button>
+                            </div>
+                        ) : isGuest ? (
+                            <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
+                                <div className={`text-xs px-3 py-1.5 rounded-full font-semibold border flex items-center gap-2 ${isNightMode ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                                    <span>Guest ({characters.length}/3 Heroes • {guestAvatarCount}/3 Avatars)</span>
+                                </div>
+                                <button onClick={() => setCurrentView('hub')}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all bg-transparent border ${isNightMode ? 'border-slate-700 hover:bg-slate-800' : 'border-amber-200 hover:bg-amber-100'}`}
+                                >
+                                    Dashboard
+                                </button>
+                                <button onClick={() => setCurrentView('auth')}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${theme.accent}`}
+                                    title="Sign up to save your heroes and stories permanently"
+                                >
+                                    Save Progress
+                                </button>
+                                <button onClick={exitGuestSession}
+                                    id="exitGuestButton"
+                                    className="px-3 py-1.5 rounded-full text-sm font-semibold transition-all bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                                    title="Exit guest mode and clear in-memory session"
+                                >
+                                    Exit Guest
+                                </button>
+                            </div>
                         ) : currentView === 'landing' && session ? (
                             <button onClick={() => setCurrentView('hub')}
                                 className={`px-4 py-2 rounded-full font-semibold transition-all ${theme.accent}`}
@@ -990,12 +1336,22 @@
                         Transform your photos into personalized adventures where your family, friends, and pets are the stars.
                     </p>
 
-                    <button onClick={() => setCurrentView(session ? 'hub' : 'auth')}
-                        className={`px-8 py-4 text-xl rounded-full font-bold transition-transform hover:scale-105 shadow-lg
-        ${theme.accent}`}
-                    >
-                        {isNightMode ? "Unlock the Legend" : "Start Your Adventure"}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                        <button onClick={session ? () => setCurrentView('hub') : startGuestSession}
+                            className={`px-8 py-4 text-xl rounded-full font-bold transition-transform hover:scale-105 shadow-lg flex items-center gap-2
+            ${theme.accent}`}
+                        >
+                            <Sparkles className="w-6 h-6" />
+                            {session ? (isGuest ? "Continue Guest Realm" : (isNightMode ? "Unlock the Legend" : "Start Your Adventure")) : "Try Guest Access (Instant)"}
+                        </button>
+                        {!session && (
+                            <button onClick={() => setCurrentView('auth')}
+                                className={`px-6 py-4 text-lg rounded-full font-bold transition-all border-2 ${isNightMode ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-amber-300 hover:bg-amber-100/50 text-slate-700'}`}
+                            >
+                                Sign In / Sign Up
+                            </button>
+                        )}
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20 text-left w-full">
                         <div className={`p-6 rounded-2xl border ${theme.card}`}>
@@ -1033,6 +1389,21 @@
                             <Sparkles className="w-5 h-5" /> Forge New Story
                         </button>
                     </div>
+
+                    {isGuest && (
+                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">✨</span>
+                                <div>
+                                    <p className="font-bold text-sm">Guest Session: {characters.length}/3 Heroes Created • {guestAvatarCount}/3 Avatars Generated</p>
+                                    <p className="text-xs opacity-80">This session is temporary and runs 100% in your browser. Leaving or refreshing resets the data.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setCurrentView('auth')} className={`px-4 py-2 rounded-full text-xs font-bold text-white shadow-md ${theme.accent}`}>
+                                Save Permanently (Free)
+                            </button>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                         {/* Core Modules */}
@@ -1208,6 +1579,10 @@
                                 Gallery of Legends
                             </button>
                             <button onClick={() => {
+                                if (isGuest && characters.length >= 3 && !editingHeroId) {
+                                    alert("Guest limit reached! Guests can create up to 3 heroes per session.\n\nPlease Sign In or Sign Up to unlock unlimited characters!");
+                                    return;
+                                }
                                 setEditingHeroId(null);
                                 setNewHeroName('');
                                 setNewHeroRole('');
@@ -1220,6 +1595,21 @@
                             </button>
                         </div>
                     </div>
+
+                    {isGuest && (
+                        <div className={`p-4 rounded-2xl mb-8 border flex flex-col sm:flex-row justify-between items-center gap-4 ${isNightMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">🛡️</span>
+                                <div>
+                                    <p className="font-bold text-sm">Guest Mode Explorer: {characters.length}/3 Heroes Summoned • {guestAvatarCount}/3 Avatars Generated</p>
+                                    <p className="text-xs opacity-80">Guests can summon up to 3 heroes. Create a free account for unlimited characters.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setCurrentView('auth')} className={`px-4 py-2 rounded-full text-xs font-bold text-white shadow-md ${theme.accent}`}>
+                                Unlock Unlimited Slots
+                            </button>
+                        </div>
+                    )}
 
                     {heroTab === 'gallery' ? (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -1261,6 +1651,10 @@
                                 </div>
                             ))}
                             <div onClick={() => {
+                                if (isGuest && characters.length >= 3) {
+                                    alert("Guest limit reached! Guests can create up to 3 heroes per session.\n\nPlease Sign In or Sign Up to unlock unlimited characters!");
+                                    return;
+                                }
                                 setEditingHeroId(null);
                                 setNewHeroName('');
                                 setNewHeroRole('');
@@ -1696,7 +2090,7 @@
                     {Navbar()}
                     <main className="w-full relative">
                         {currentView === 'landing' && LandingPage()}
-                        {currentView === 'auth' && <AuthView theme={theme} isNightMode={isNightMode} setCurrentView={setCurrentView} />}
+                        {currentView === 'auth' && <AuthView theme={theme} isNightMode={isNightMode} setCurrentView={setCurrentView} startGuestSession={startGuestSession} />}
                         {session && currentView === 'hub' && FamilyHub()}
                         {session && currentView === 'heroes' && HallOfHeroes()}
                         {session && currentView === 'forge' && AdventureForge()}
