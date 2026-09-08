@@ -390,7 +390,8 @@
                     }
 
                     // Call our Python Backend to generate image
-                    const response = await fetch('http://localhost:8000/api/generate', {
+                    const backendUrl = window.KINTALES_CONFIG?.BACKEND_URL || 'http://localhost:8001';
+                    const response = await fetch(`${backendUrl}/api/generate`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -476,7 +477,8 @@
                     });
 
                     // Call our Python Backend instead
-                    const visionRes = await fetch(`http://localhost:8000/api/analyze-image`, {
+                    const backendUrl = window.KINTALES_CONFIG?.BACKEND_URL || 'http://localhost:8001';
+                    const visionRes = await fetch(`${backendUrl}/api/analyze-image`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

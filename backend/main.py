@@ -19,7 +19,7 @@ RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
 RUNPOD_IMAGE_ENDPOINT_ID = os.getenv("RUNPOD_IMAGE_ENDPOINT_ID")
 WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL")  # e.g., https://your-ngrok-url.ngrok.io
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8080/v1")
+LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8000/v1")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -237,7 +237,7 @@ async def get_local_models():
                 return {"status": "ok", "models": [m.get("id") for m in data.get("data", [])]}
             return {"status": "error", "message": f"oMLX responded with {res.status_code}"}
     except httpx.ConnectError:
-        return {"status": "offline", "message": "oMLX local server not running on port 8080"}
+        return {"status": "offline", "message": "oMLX local server not running on port 8000"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -275,9 +275,15 @@ async def local_generate(req: LocalGenerateRequest):
     except httpx.ConnectError:
         raise HTTPException(
             status_code=503,
-            detail="Local model server (oMLX) is offline. Start it with: /Users/prismforge/.omlx/bin/omlx serve --port 8080"
+            detail="Local model server (oMLX) is offline. Start it with: /Users/prismforge/.omlx/bin/omlx serve --port 8000"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run("main:app", host="127.0.0.1", port=port, reload=True)
 
 
